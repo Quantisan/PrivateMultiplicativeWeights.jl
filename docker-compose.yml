@@ -1,0 +1,5 @@
+app:
+  build: .
+  volumes:
+    - .:/usr/src/app
+
