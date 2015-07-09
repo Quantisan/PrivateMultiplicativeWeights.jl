@@ -62,12 +62,10 @@ function Histogram(table::Tabular)
     d, n = size(table.data)
     histogram = zeros(2^d)
     for i = 1:n
-        num = 0
         x = vec(table.data[:,i])
-        for i = 1:d
-            num += x[d-i+1] * 2^(i-1)
-        end
-        histogram[num+1] += 1.0
+        # treat each row of binary values as one bit string
+        bit_str = join(map(int, x), "")
+        histogram[parseint(bit_str, 2) + 1] += 1.0
     end
     normalize!(Histogram(histogram))
 end
