@@ -70,10 +70,24 @@ function Histogram(table::Tabular)
     normalize!(Histogram(histogram))
 end
 
+function HistogramFloat16(table::Tabular)
+    d, n = size(table.data)
+    histogram = zeros(2^16 * d)
+    for i = 1:n
+        x = vec(table.data[:,i])
+        x = map(float16, x)  # WARNING casting to Float16
+        x = map(bits, x)
+        bit_str = join(x, "")
+        idx = parseint(Uint128, bit_str, 2) + 1
+        histogram[idx] += 1.0
+    end
+    normalize!(Histogram(histogram))
+end
+
 # convert histogram to 0/1 data matrix
 function Tabular(histogram::Histogram,n::Int)
     N = length(histogram.weights)
-    d = int(log(2,length(histogram.weights)))
+    d = int(log(2,N))
     idx = wsample([0:N-1],histogram.weights,n)
     data_matrix = zeros(d,n)
     for i = 1:n
@@ -81,3 +95,4 @@ function Tabular(histogram::Histogram,n::Int)
     end
     Tabular(data_matrix)
 end
+

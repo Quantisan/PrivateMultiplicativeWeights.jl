@@ -12,6 +12,11 @@ using Base.Test
 @test Tabular(Histogram([1.0,0.0,0.0,0.0]),10).data == zeros(2,10)
 @test Tabular(Histogram([0.0,0.0,0.0,1.0]),10).data == ones(2,10)
 
+@test HistogramFloat16(Tabular(zeros(1,10))).weights == vec([1.0 zeros(1, 2^16 - 1)])
+x = zeros(2^16)
+x[parseint(bits(float16(1.0)), 2) + 1] = 1.0
+@test HistogramFloat16(Tabular(ones(1,10))).weights == x
+
 # test our hadamard basis vectors agree with Hadamard module
 for j = 0:10
     for i = j:10
