@@ -72,7 +72,7 @@ end
 
 function HistogramFloat16(table::Tabular)
     d, n = size(table.data)
-    histogram = zeros(2^16 * d)
+    histogram = zeros(Uint8, 2^(16 * d))  ## ERROR not enough memory
     for i = 1:n
         x = vec(table.data[:,i])
         x = map(float16, x)  # WARNING casting to Float16
