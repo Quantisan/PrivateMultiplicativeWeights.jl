@@ -9,7 +9,7 @@ export
     mwem,
     Tabular,
     Histogram,
-    HistogramFloat16,
+    HistogramFloat,
     HistogramQueries,
     Parities,
     FactorParities,

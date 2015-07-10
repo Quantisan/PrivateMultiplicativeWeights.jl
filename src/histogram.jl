@@ -70,13 +70,17 @@ function Histogram(table::Tabular)
     normalize!(Histogram(histogram))
 end
 
-function HistogramFloat16(table::Tabular)
+function downcast_bits(x::Float32)
+  bits(x)[1:3]  # only take first 3 bits
+end
+
+function HistogramFloat(table::Tabular)
     d, n = size(table.data)
-    histogram = zeros(Uint8, 2^(16 * d))  ## ERROR not enough memory
+    histogram = zeros(Uint8, 2^(3 * d))  ## ERROR not enough memory
     for i = 1:n
         x = vec(table.data[:,i])
-        x = map(float16, x)  # WARNING casting to Float16
-        x = map(bits, x)
+        x = map(float32, x)  # WARNING casting to Float32
+        x = map(downcast_bits, x)
         bit_str = join(x, "")
         idx = parseint(Uint128, bit_str, 2) + 1
         histogram[idx] += 1.0
@@ -92,6 +96,37 @@ function Tabular(histogram::Histogram,n::Int)
     data_matrix = zeros(d,n)
     for i = 1:n
         data_matrix[:,i] = reverse(digits(idx[i],2,d))
+    end
+    Tabular(data_matrix)
+end
+
+function pad32bits(s::String)
+  return join([s "00000000000000000000000000000"])
+end
+
+function bits2float(s::String)
+  ## TODO this is a hack and is incorrect for negatives
+  x = parseint(Int128, s, 2)
+  return hex2num(hex(x))
+end
+
+function last3bits(s::String)
+  return s[end-2:end]
+end
+
+function TabularFloat(histogram::Histogram,n::Int)
+    N = length(histogram.weights)
+    d = int(log(2,N) / 3)
+    idx = wsample([0:N-1],histogram.weights,n)
+    data_matrix = zeros(Float32, d,n)
+    for i = 1:n
+      coll = reverse(digits(idx[i],8,d))
+      coll = map(bits, coll)
+      # Only using 3 bits from each value
+      coll = map(last3bits, coll)
+      coll = map(pad32bits, coll)
+      coll = map(bits2float,coll)
+      data_matrix[:,i] = coll
     end
     Tabular(data_matrix)
 end

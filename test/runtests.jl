@@ -13,14 +13,17 @@ using Base.Test
 @test Tabular(Histogram([0.0,0.0,0.0,1.0]),10).data == ones(2,10)
 
 # One column
-@test HistogramFloat16(Tabular(zeros(1,10))).weights == vec([1.0 zeros(1, 2^16 - 1)])
-x = zeros(2^16)
-x[parseint(bits(float16(1.0)), 2) + 1] = 1.0
-@test HistogramFloat16(Tabular(ones(1,10))).weights == x
+@test HistogramFloat(Tabular(zeros(1,10))).weights == [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+@test HistogramFloat(Tabular(ones(1,10))).weights == [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 # Multiple columns
-# TODO failed because out of memory
-#=@test HistogramFloat16(Tabular([1 0; 0 1])).weights == [0.0,0.5,0.5,0]=#
+diag_weights = vec([0.0 0.5 0.0 0.0 0.0 0.0 0.0 0.0 0.5 zeros(1, 55)])
+@test HistogramFloat(Tabular([1 0; 0 1])).weights == diag_weights
+
+@test TabularFloat(Histogram([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),10).data == zeros(1,10)
+# not ones because of lost of precision
+@test TabularFloat(Histogram([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),10).data == fill(1.0842e-19, 1,10)
+@test TabularFloat(HistogramFloat(Tabular(fill(1000,1,10))),10).data == fill(1.0842e-19, 1,10)
 
 # test our hadamard basis vectors agree with Hadamard module
 for j = 0:10
