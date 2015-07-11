@@ -8,7 +8,9 @@ using
 export
     mwem,
     Tabular,
+    TabularFloat,
     Histogram,
+    HistogramFloat,
     HistogramQueries,
     Parities,
     FactorParities,

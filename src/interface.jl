@@ -16,6 +16,7 @@ type MWState
     measurements::Dict{Int,Float}
     scale::Float
     repetitions::Int
+    bin_edges
 end
 
 type Tabular <: Data
