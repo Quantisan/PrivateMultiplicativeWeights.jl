@@ -18,8 +18,8 @@ Open a Julia prompt and call: `Pkg.clone("https://github.com/mrtzh/PrivateMultip
 ## Usage
 For the sake of illustration, we create a random data set with hidden correlations. Columns correspond to data points.
 ```
-d, n = 20, 1000
-data_matrix = rand(0:1,d,n)
+d, n = 5, 1000
+data_matrix = rand(d,n)
 data_matrix[3,:] = data_matrix[1,:] .* data_matrix[2,:]
 ```
 
@@ -48,7 +48,7 @@ Parameters:
 
 We can convert synthetic data in histogram representation to matrix tabular representation.
 ```
-table = Tabular(mw.synthetic, n)
+table = TabularFloat(mw.synthetic, mw.bin_edges, n)
 ```
 Compute error achieved by MWEM:
 ```

@@ -31,47 +31,6 @@ function update!(q::HistogramQuery,h::Histogram,error::Float64)
     end
 end
 
-function histogram_initialize(queries::Queries,table::Tabular,parameters)
-    d, n  = size(table.data)
-    epsilon, iterations, repetitions, smart = parameters
-    N = 2^d
-    real = Histogram(table)
-    if smart
-        # spend half of epsilon on histogram initialization
-        weights = Array(Float64,N)
-        noise = rand(Laplace(0.0,1.0/(n*epsilon)),N)
-        @simd for i = 1:N
-             @inbounds weights[i] = max(real.weights[i]+noise[i]-1.0/(e*n*epsilon),0.0)
-        end
-        weights /= sum(weights)
-        synthetic = Histogram(0.5 * weights + 0.5/N)
-        epsilon = 0.5*epsilon
-    else
-        synthetic = Histogram(ones(N)/N)
-    end
-    real_answers = evaluate(queries,real)
-    scale = 2*iterations/(epsilon*n)
-    mwstate = MWState(real,synthetic,queries,real_answers,(Int=>Float)[],scale,repetitions)
-    mwstate
-end
-
-function initialize(queries::HistogramQueries,table::Tabular,parameters)
-    histogram_initialize(queries,table,parameters)
-end
-
-# convert 0/1 data matrix to its histogram representation
-function Histogram(table::Tabular)
-    d, n = size(table.data)
-    histogram = zeros(2^d)
-    for i = 1:n
-        x = vec(table.data[:,i])
-        # treat each row of binary values as one bit string
-        bit_str = join(map(int, x), "")
-        histogram[parseint(bit_str, 2) + 1] += 1.0
-    end
-    normalize!(Histogram(histogram))
-end
-
 chunk_size = 8
 
 function bin_edge(coll::Vector)
@@ -95,6 +54,48 @@ function bin_edges(t::Tabular)
     edges[i,:] = bin_edge(vec(t.data[i,:]))
   end
   return edges
+end
+
+function histogram_initialize(queries::Queries,table::Tabular,parameters)
+    d, n  = size(table.data)
+    epsilon, iterations, repetitions, smart = parameters
+    N = 2^(d * 3)
+    edges = bin_edges(table)
+    real = HistogramFloat(table, edges)
+    if smart
+        # spend half of epsilon on histogram initialization
+        weights = Array(Float64,N)
+        noise = rand(Laplace(0.0,1.0/(n*epsilon)),N)
+        @simd for i = 1:N
+             @inbounds weights[i] = max(real.weights[i]+noise[i]-1.0/(e*n*epsilon),0.0)
+        end
+        weights /= sum(weights)
+        synthetic = Histogram(0.5 * weights + 0.5/N)
+        epsilon = 0.5*epsilon
+    else
+        synthetic = Histogram(ones(N)/N)
+    end
+    real_answers = evaluate(queries,real)
+    scale = 2*iterations/(epsilon*n)
+    mwstate = MWState(real,synthetic,queries,real_answers,(Int=>Float)[],scale,repetitions,edges)
+    mwstate
+end
+
+function initialize(queries::HistogramQueries,table::Tabular,parameters)
+    histogram_initialize(queries,table,parameters)
+end
+
+# convert 0/1 data matrix to its histogram representation
+function Histogram(table::Tabular)
+    d, n = size(table.data)
+    histogram = zeros(2^d)
+    for i = 1:n
+        x = vec(table.data[:,i])
+        # treat each row of binary values as one bit string
+        bit_str = join(map(int, x), "")
+        histogram[parseint(bit_str, 2) + 1] += 1.0
+    end
+    normalize!(Histogram(histogram))
 end
 
 function HistogramFloat(table::Tabular, bin_edges)
