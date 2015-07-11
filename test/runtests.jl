@@ -13,17 +13,22 @@ using Base.Test
 @test Tabular(Histogram([0.0,0.0,0.0,1.0]),10).data == ones(2,10)
 
 # One column
-@test HistogramFloat(Tabular(zeros(1,10))).weights == [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-@test HistogramFloat(Tabular(ones(1,10))).weights == [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+table = Tabular([1.0 2.0 3.0 4.0 5.0])
+edges5 = PrivateMultiplicativeWeights.bin_edges(table)
+@test HistogramFloat(table, edges5).weights == [0.0, 0.2, 0.0, 0.2, 0.0, 0.2, 0.0, 0.4]
 
 # Multiple columns
-diag_weights = vec([0.0 0.5 0.0 0.0 0.0 0.0 0.0 0.0 0.5 zeros(1, 55)])
-@test HistogramFloat(Tabular([1 0; 0 1])).weights == diag_weights
+table = Tabular([1.0 0.0; 0.0 1.0])
+edges = PrivateMultiplicativeWeights.bin_edges(table)
+diag_weights = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0,0.0,0.0,0.0,0.0,0.0]
+@test HistogramFloat(table, edges).weights == diag_weights
 
-@test TabularFloat(Histogram([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),10).data == zeros(1,10)
-# not ones because of lost of precision
-@test TabularFloat(Histogram([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),10).data == fill(1.0842e-19, 1,10)
-@test TabularFloat(HistogramFloat(Tabular(fill(1000,1,10))),10).data == fill(1.0842e-19, 1,10)
+# random numbers, so can't guarantee values
+private = TabularFloat(Histogram([0.0, 0.2, 0.0, 0.2, 0.0, 0.2, 0.0, 0.4]), edges5, 100).data
+@test maximum(private) <= 5.0
+@test minimum(private) >= 1.0
+
+@test PrivateMultiplicativeWeights.bin_edge([1.0, 2.0, 3.0, 4.0, 5.0]) == [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0]
 
 # test our hadamard basis vectors agree with Hadamard module
 for j = 0:10

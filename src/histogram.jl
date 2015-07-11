@@ -1,5 +1,7 @@
 # data and queries are represented as vectors in the histogram space
 
+using Discretizers
+
 type Histogram <: Data
     weights::Vector
 end
@@ -70,20 +72,49 @@ function Histogram(table::Tabular)
     normalize!(Histogram(histogram))
 end
 
-function downcast_bits(x::Float32)
-  bits(x)[1:3]  # only take first 3 bits
+chunk_size = 8
+
+function bin_edge(coll::Vector)
+  min = minimum(coll)
+  max = maximum(coll)
+  chunk = (max - min) / chunk_size
+  edges = zeros(chunk_size)
+  edges[1] = min
+  edges[chunk_size] = max
+  for i = 2:(chunk_size - 1)
+    edges[i] = min + (chunk * (i - 1))
+  end
+  return edges
 end
 
-function HistogramFloat(table::Tabular)
-    d, n = size(table.data)
-    histogram = zeros(Uint8, 2^(3 * d))  ## ERROR not enough memory
-    for i = 1:n
-        x = vec(table.data[:,i])
-        x = map(float32, x)  # WARNING casting to Float32
-        x = map(downcast_bits, x)
-        bit_str = join(x, "")
-        idx = parseint(Uint128, bit_str, 2) + 1
-        histogram[idx] += 1.0
+# bin_edges returns a dx8 matrix representing the 8-edge of each column
+function bin_edges(t::Tabular)
+  d, n = size(t.data)
+  edges = zeros(d, chunk_size)
+  for i = 1:d
+    edges[i,:] = bin_edge(vec(t.data[i,:]))
+  end
+  return edges
+end
+
+function HistogramFloat(table::Tabular, bin_edges)
+    col, row = size(table.data)
+    histogram = zeros(Uint8, 2^(3 * col))
+    for i = 1:row
+      encoded = zeros(col)
+      for j = 1:col
+        lindisc = LinearDiscretizer(vec(bin_edges[j,:]))
+        encoded[j] = encode(lindisc, table.data[j,i])
+      end
+
+      encoded = map(int, encoded)
+      encoded = map(bits, encoded)
+      # take 3 bits only
+      encoded = map(s -> s[end-2:end], encoded)
+
+      bit_str = join(encoded, "")
+      idx = parseint(Uint128, bit_str, 2) + 1
+      histogram[idx] += 1.0
     end
     normalize!(Histogram(histogram))
 end
@@ -100,33 +131,17 @@ function Tabular(histogram::Histogram,n::Int)
     Tabular(data_matrix)
 end
 
-function pad32bits(s::String)
-  return join([s "00000000000000000000000000000"])
-end
-
-function bits2float(s::String)
-  ## TODO this is a hack and is incorrect for negatives
-  x = parseint(Int128, s, 2)
-  return hex2num(hex(x))
-end
-
-function last3bits(s::String)
-  return s[end-2:end]
-end
-
-function TabularFloat(histogram::Histogram,n::Int)
+function TabularFloat(histogram::Histogram, bin_edges, n::Int)
     N = length(histogram.weights)
     d = int(log(2,N) / 3)
     idx = wsample([0:N-1],histogram.weights,n)
     data_matrix = zeros(Float32, d,n)
     for i = 1:n
       coll = reverse(digits(idx[i],8,d))
-      coll = map(bits, coll)
-      # Only using 3 bits from each value
-      coll = map(last3bits, coll)
-      coll = map(pad32bits, coll)
-      coll = map(bits2float,coll)
-      data_matrix[:,i] = coll
+      for j = 1:d
+        lindisc = LinearDiscretizer(vec(bin_edges[j,:]))
+        data_matrix[j,i] = decode(lindisc, coll[j])
+      end
     end
     Tabular(data_matrix)
 end
